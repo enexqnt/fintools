@@ -6,8 +6,11 @@ import yfinance as yf
 from datetime import datetime, timedelta
 import seaborn as sns
 import matplotlib.pyplot as plt
+import matplotlib
 import estimation
 import scipy
+
+
 
 st.set_page_config('FinTools')
 ##############################
@@ -15,8 +18,13 @@ st.set_page_config('FinTools')
 ##############################
 def plot_g(data,title=None):
     fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    fig.patch.set_facecolor('#00172B')
+    ax.patch.set_facecolor('#00172B')
     plt.plot(data)
-    plt.title(title)
+    plt.title(title,color='white')
+    plt.xticks(color='white')
+    plt.yticks(color='white')
     st.pyplot(fig)
 
 def main():
@@ -128,14 +136,27 @@ def main():
             st.metric('Min. days to avoid losses', len(a[a<0].dropna()))
 
         # Plot
+        plot_g(a,'Max. loss after x days - Historical analysis')
+        ##############################
+        ## COVARIANCE MATRIX
+        ##############################
+        st.header('Covariance estimation')
+        try:
+            cov=estimation.CovMatrix(rets)
+            L = np.linalg.cholesky(cov)
+            st.metric('Covariance Estimation Method:','Robust')
+            st.write('*Denoising and Detoning by De Prado')
+        except:
+            cov=rets.cov()
+            L = np.linalg.cholesky(cov)
+            st.metric('Covariance Estimation Method:','Classical')
+            st.write('*No Robut Covariance Estimation adopted since the var/cov matrix is not semi-positive definite')
+        
         fig = plt.figure()
-        plt.plot(a,color='black')
-        plt.axhline(0)
-        plt.title('Max. loss after x days - Historical analysis')
+        sns.heatmap(cov*np.sqrt(252), cmap="winter", annot=False)
+        plt.title('Variance/Covariance matrix')
         st.pyplot(fig)
-
-
-
+        plt.show()
 
         ##############################
         ## MONTE CARLO
@@ -150,12 +171,6 @@ def main():
         mu_df=estimation.mean_historical_return(data,frequency=1)
         meanM = np.full(shape=(n_t, len(weights)), fill_value=mu_df).T
         portf_returns = np.full((n_t,n_mc),0.)
-        try:
-            cov=estimation.CovMatrix(rets)
-            L = np.linalg.cholesky(cov)
-        except:
-            cov=rets.cov()
-            L = np.linalg.cholesky(cov)
 
         for i in range(0,n_mc):
             Z = np.random.standard_t(12,size=(n_t, len(weights)))#uncorrelated RV's
@@ -187,6 +202,8 @@ def main():
         f = plt.figure()
         f.set_figwidth(15)
         f.set_figheight(10)
+        ax = f.add_subplot(1, 1, 1)
+ 
 
         # Plot mc simulations
         with sns.color_palette("winter"):
@@ -200,9 +217,14 @@ def main():
         plt.plot(hist[-1]*trend(np.quantile(portf_returns[-1],q=0.01)),color='black',)
         plt.plot(hist[-1]*trend(np.quantile(portf_returns[-1],q=0.5)),color='white')
 
+        f.patch.set_facecolor('#00172B')
+        ax.patch.set_facecolor('#00172B')
+        plt.title('Monte Carlo Simulation',color='white')
+        plt.xticks(color='white')
+        plt.yticks(color='white')
         # Display the chart
         st.pyplot(f)
-
+        
         # Write some stats
         st.write('Forecasted returns')
         col1, col2, col3 = st.columns(3)
