@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import estimation
 import scipy
 
-
+st.set_page_config('FinTools')
 ##############################
 # PLOT FUNCTION
 ##############################
