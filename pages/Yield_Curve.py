@@ -7,9 +7,12 @@ from mpl_toolkits.mplot3d import axes3d
 import matplotlib.dates as dates
 import matplotlib.ticker as ticker
 import matplotlib.pyplot as plt
+from datetime import datetime
 
 def main():
-    data = quandl.get('USTREASURY/YIELD', returns='numpy', trim_start="2009-01-02")
+    st.header('3D US Yield Curve')
+    ch=st.date_input('Select the starting date: ',value=datetime.strptime('2011-01-01','%Y-%m-%d'),max_value=datetime.strptime('2016-01-02','%Y-%m-%d'))
+    data = quandl.get('USTREASURY/YIELD', returns='numpy', trim_start=ch)
     # Conversion
     header = []
     for name in data.dtype.names[1:]:
