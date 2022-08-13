@@ -9,6 +9,33 @@ import matplotlib.ticker as ticker
 import matplotlib.pyplot as plt
 from datetime import datetime
 
+def plot3d(x,y,z, a,b,title=False):
+    fig = plt.figure(figsize=(15, 10))
+    ax = fig.add_subplot(111, projection='3d')
+    fig.patch.set_facecolor('#00172B')
+    ax.patch.set_facecolor('#00172B')
+    ax.plot_surface(x, y, z, rstride=10, cstride=1, cmap='winter', vmin=np.nanmin(z), vmax=np.nanmax(z))
+    if title:
+        ax.set_title('US Treasury Yield Curve',color='white')
+    ax.set_ylabel('Maturity', color='white')
+    ax.set_zlabel('Yield',color='white')
+    ax.tick_params(axis='x', colors='white')  
+    ax.tick_params(axis='z', colors='white')  
+    ax.tick_params(axis='y', colors='white')  
+
+    
+    def format_date(x, pos=None):
+        return dates.num2date(x).strftime('%Y-%m-%d')
+
+    ax.w_xaxis.set_major_formatter(ticker.FuncFormatter(format_date))
+    for tl in ax.w_xaxis.get_ticklabels():
+            tl.set_ha('right')
+            tl.set_rotation(15)
+    
+    ax.view_init(a, b)       
+    
+    st.pyplot(fig)
+
 def main():
     st.header('3D US Yield Curve')
     ch=st.date_input('Select the starting date: ',value=datetime.strptime('2011-01-01','%Y-%m-%d'),max_value=datetime.strptime('2016-01-02','%Y-%m-%d'))
@@ -36,28 +63,12 @@ def main():
     x = np.array(x_data, dtype='f'); y = np.array(y_data, dtype='f'); z = np.array(z_data, dtype='f')
 
 
-    fig = plt.figure(figsize=(15, 10))
-    ax = fig.add_subplot(111, projection='3d')
-    fig.patch.set_facecolor('#00172B')
-    ax.patch.set_facecolor('#00172B')
-    ax.plot_surface(x, y, z, rstride=10, cstride=1, cmap='winter', vmin=np.nanmin(z), vmax=np.nanmax(z))
-    ax.set_title('US Treasury Yield Curve',color='white')
-    ax.set_ylabel('Maturity', color='white')
-    ax.set_zlabel('Yield',color='white')
-    plt.xticks(color='white')
-    plt.yticks(color='white')
-    
 
-    # SO question
-    def format_date(x, pos=None):
-        return dates.num2date(x).strftime('%Y-%m-%d')
+    plot3d(x,y,z,60,-30,title=True)
+    plot3d(x,y,z,0,90)
+    plot3d(x,y,z,90,0)
 
-    ax.w_xaxis.set_major_formatter(ticker.FuncFormatter(format_date))
-    for tl in ax.w_xaxis.get_ticklabels():
-        tl.set_ha('right')
-        tl.set_rotation(15)
 
-    st.pyplot(fig)
 
 if __name__ == "__main__":
     main()
