@@ -3,13 +3,29 @@ from distutils.command.install_egg_info import safe_name
 import streamlit as st
 import quandl
 import numpy as np
+import pandas as pd
 from mpl_toolkits.mplot3d import axes3d
 import matplotlib.dates as dates
 import matplotlib.ticker as ticker
 import matplotlib.pyplot as plt
+from datetime import date
 from datetime import datetime
 
+st.set_page_config('FinTools')
+
+def plot_g(data,title=None):
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    fig.patch.set_facecolor('#00172B')
+    ax.patch.set_facecolor('#00172B')
+    plt.plot(data)
+    plt.title(title,color='white')
+    plt.xticks(color='white')
+    plt.yticks(color='white')
+    st.pyplot(fig)
+
 def plot3d(x,y,z, a,b,title=False):
+
     fig = plt.figure(figsize=(15, 10))
     ax = fig.add_subplot(111, projection='3d')
     fig.patch.set_facecolor('#00172B')
@@ -37,10 +53,24 @@ def plot3d(x,y,z, a,b,title=False):
     st.pyplot(fig)
 
 def main():
+    hide_menu_style = """
+        <style>
+        #MainMenu {visibility: hidden;}
+        </style>
+        """
+    st.markdown(hide_menu_style, unsafe_allow_html=True)
+    hide_streamlit_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            </style>
+            """
+    st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
     st.header('3D US Yield Curve')
     ch=st.date_input('Select the starting date: ',value=datetime.strptime('2011-01-01','%Y-%m-%d'),max_value=datetime.strptime('2016-01-02','%Y-%m-%d'))
-    data = quandl.get('USTREASURY/YIELD', returns='numpy', trim_start=ch)
+    data = quandl.get('USTREASURY/YIELD', returns='numpy', trim_start =ch, trim_end=date.today().strftime("%Y-%m-%d"),authtoken='KKYfPw2rAR9XzEcxCHsa')
     # Conversion
+    st.write(date.today().strftime("%Y-%m-%d"))
     header = []
     for name in data.dtype.names[1:]:
         maturity = float(name.split(" ")[0])
@@ -49,7 +79,7 @@ def main():
         header.append(maturity)
 
     x_data = []; y_data = []; z_data = []
-
+    st.write(data)
 
     for dt in data.Date:
         dt_num = dates.date2num(dt)
@@ -60,9 +90,11 @@ def main():
         y_data.append(header)
         z_data.append(list(row.tolist()[1:]))
 
+
     x = np.array(x_data, dtype='f'); y = np.array(y_data, dtype='f'); z = np.array(z_data, dtype='f')
 
-
+    st.write(y)
+    st.write(z)
 
     plot3d(x,y,z,60,-30,title=True)
     plot3d(x,y,z,0,90)

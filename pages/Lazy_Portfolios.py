@@ -16,6 +16,68 @@ st.set_page_config('FinTools')
 ##############################
 # PLOT FUNCTION
 ##############################
+
+
+def get_max_drawdown_underwater(underwater):
+    valley = underwater.idxmin()  # end of the period
+    # Find first 0
+    peak = underwater[:valley][underwater[:valley] == 0].index[-1]
+    # Find last 0
+    try:
+        recovery = underwater[valley:][underwater[valley:] == 0].index[0]
+    except IndexError:
+        recovery = np.nan  # drawdown not recovered
+    return peak, valley, recovery
+
+def dd_table(underwater,hist):
+    drawdowns = []
+    for _ in range(5):
+        peak, valley, recovery = get_max_drawdown_underwater(underwater)
+        # Slice out draw-down period
+        if not pd.isnull(recovery):
+            underwater.drop(underwater[peak: recovery].index[1:-1],
+                            inplace=True)
+        else:
+            # drawdown has not ended yet
+            underwater = underwater.loc[:peak]
+
+        drawdowns.append((peak, valley, recovery))
+        if ((len(hist) == 0)
+                or (len(underwater) == 0)
+                or (np.min(underwater) == 0)):
+            break
+    df_drawdowns = pd.DataFrame(index=list(range(5)),
+                                columns=['Net drawdown in %',
+                                         'Peak date',
+                                         'Valley date',
+                                         'Recovery date',
+                                         'Duration'])
+    for i, (peak, valley, recovery) in enumerate(drawdowns):
+        if pd.isnull(recovery):
+            df_drawdowns.loc[i, 'Duration'] = np.nan
+        else:
+            df_drawdowns.loc[i, 'Duration'] = len(pd.date_range(peak,
+                                                                recovery,
+                                                                freq='B'))
+        df_drawdowns.loc[i, 'Peak date'] = (peak.to_pydatetime()
+                                            .strftime('%Y-%m-%d'))
+        df_drawdowns.loc[i, 'Valley date'] = (valley.to_pydatetime()
+                                                .strftime('%Y-%m-%d'))
+        if isinstance(recovery, float):
+            df_drawdowns.loc[i, 'Recovery date'] = recovery
+        else:
+            df_drawdowns.loc[i, 'Recovery date'] = (recovery.to_pydatetime()
+                                                    .strftime('%Y-%m-%d'))
+        df_drawdowns.loc[i, 'Net drawdown in %'] = (
+            (hist.loc[peak] - hist.loc[valley]) / hist.loc[peak]) * 100
+
+    df_drawdowns['Peak date'] = pd.to_datetime(df_drawdowns['Peak date'])
+    df_drawdowns['Valley date'] = pd.to_datetime(df_drawdowns['Valley date'])
+    df_drawdowns['Recovery date'] = pd.to_datetime(
+        df_drawdowns['Recovery date'])
+    return df_drawdowns
+
+    
 def plot_g(data,title=None):
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)
@@ -85,7 +147,8 @@ def main():
     ##############################
     ## DRAWDOWN & other metrics
     ##############################
-    dd=(hist-hist.cummax())
+    running_max = np.maximum.accumulate(hist)
+    dd = hist / running_max - 1 
     plot_g(dd,'Historical Drawdown')
 
     cagr=estimation.mean_historical_return(hist)
@@ -96,7 +159,8 @@ def main():
     col2.metric('STD',str("{:.2%}".format(std)))
     col3.metric('Sharpe ratio',str("{:.2f}".format(sharpe)))
     col4.metric('Max Drawdown',str("{:.2%}".format(dd.min())))
-
+    st.subheader('Worst five drawdowns')
+    st.write(dd_table(dd,hist))
     ##############################
     ## HIST MAX LOSS AFTER X DAYS
     ##############################
