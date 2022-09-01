@@ -78,96 +78,99 @@ def main():
     data=yf.download(tickers,interval='1d')['Adj Close']
     data.dropna(inplace=True)
 
+    if st.button('Run optimization'):
+        try:
+            ##############################
+            # RETURNS COMPUTATION & PLOTTING
+            ##############################
+            rets=data.pct_change().dropna()
+            cumrets=(rets+1).cumprod()
 
-    ##############################
-    # RETURNS COMPUTATION & PLOTTING
-    ##############################
-    rets=data.pct_change().dropna()
-    cumrets=(rets+1).cumprod()
+            ##############################
+            ## REBALANCING DATES
+            ##############################
+            # Selecting last day of month of available data
+            index = rets.groupby([rets.index.year, rets.index.month]).tail(1).index
+            index_2 = rets.index
+            # Quarterly Dates
+            index = [x for x in index if float(x.month) % n_rebal== 0 ] 
 
-    ##############################
-    ## REBALANCING DATES
-    ##############################
-    # Selecting last day of month of available data
-    index = rets.groupby([rets.index.year, rets.index.month]).tail(1).index
-    index_2 = rets.index
-    # Quarterly Dates
-    index = [x for x in index if float(x.month) % n_rebal== 0 ] 
+            # Dates where the strategy will be backtested
+            index_ = [index_2.get_loc(x) for x in index if index_2.get_loc(x) > n_loockback]
 
-    # Dates where the strategy will be backtested
-    index_ = [index_2.get_loc(x) for x in index if index_2.get_loc(x) > n_loockback]
+            weights = pd.DataFrame([])
+            ##############################
+            ## OPTIMIZATION
+            ##############################
+            for i in index_:
+                    Y = rets.iloc[:i,:] 
 
-    weights = pd.DataFrame([])
-    ##############################
-    ## OPTIMIZATION
-    ##############################
-    for i in index_:
-            Y = rets.iloc[:i,:] 
+                    # Building the portfolio object
+                    port = rp.Portfolio(returns=Y)
+                    
+                    # Estimate optimal portfolio:
+                    port.assets_stats(method_mu='hist', method_cov='fixed')
 
-            # Building the portfolio object
-            port = rp.Portfolio(returns=Y)
+                    w = port.rp_optimization(model='Classic', rm='MV' )
+
+                    if w is None:
+                        w = weights.tail(1).T
+                    weights = pd.concat([weights, w.T], axis = 0)
+
+            weights['index']=index[-len(weights.index):]
+            weights.set_index(weights['index'],inplace=True)
+            weights.drop('index',axis=1,inplace=True)
             
-            # Estimate optimal portfolio:
-            port.assets_stats(method_mu='hist', method_cov='fixed')
+            
 
-            w = port.rp_optimization(model='Classic', rm='MV' )
+            ax  = weights.plot.bar(stacked=True)
+            fig = ax.get_figure()
+            fig.patch.set_facecolor('#00172B')
+            ax.patch.set_facecolor('#00172B')
+            plt.xticks(color='white')
+            plt.title('Portfolio weights',color='white')
+            plt.yticks(color='white')
+            plt.ylabel('')
+            st.pyplot(fig)
 
-            if w is None:
-                w = weights.tail(1).T
-            weights = pd.concat([weights, w.T], axis = 0)
+            index_.append(len(rets)-1)
+            first=True
+            a=pd.Series()
+            c=0
+            x=0
+            for i in index_:
+                if first==True:
+                    first=False
+                else:
+                    a=pd.concat([(rets.iloc[x:i]@np.array(weights.iloc[c])),a],join='inner')
+                    c+=1
+                x=i
 
-    weights['index']=index[-len(weights.index):]
-    weights.set_index(weights['index'],inplace=True)
-    weights.drop('index',axis=1,inplace=True)
-    
-    
+            a.sort_index(inplace=True)
 
-    ax  = weights.plot.bar(stacked=True)
-    fig = ax.get_figure()
-    fig.patch.set_facecolor('#00172B')
-    ax.patch.set_facecolor('#00172B')
-    plt.xticks(color='white')
-    plt.title('Portfolio weights',color='white')
-    plt.yticks(color='white')
-    plt.ylabel('')
-    st.pyplot(fig)
+            hist=(a+1).cumprod()
+            plot_g(hist,'Portfolio Historical Value')
 
-    index_.append(len(rets)-1)
-    first=True
-    a=pd.Series()
-    c=0
-    x=0
-    for i in index_:
-        if first==True:
-            first=False
-        else:
-            a=pd.concat([(rets.iloc[x:i]@np.array(weights.iloc[c])),a],join='inner')
-            c+=1
-        x=i
+            #DRAWDOWN
+            running_max = np.maximum.accumulate(hist)
+            dd = hist / running_max - 1 
+            plot_g(dd,title='Underwater Plot')
 
-    a.sort_index(inplace=True)
+            
+            st.subheader('Historical Stats')
+            cagr=estimation.mean_historical_return(hist)
+            std=hist.pct_change().dropna().std()*(252**0.5)
+            sharpe=cagr/std
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric('CAGR',str("{:.2%}".format(cagr)))
+            col2.metric('STD',str("{:.2%}".format(std)))
+            col3.metric('Sharpe ratio',str("{:.2f}".format(sharpe)))
+            col4.metric('Max Drawdown',str("{:.2%}".format(dd.min())))
 
-    hist=(a+1).cumprod()
-    plot_g(hist,'Portfolio Historical Value')
-
-    #DRAWDOWN
-    running_max = np.maximum.accumulate(hist)
-    dd = hist / running_max - 1 
-    plot_g(dd,title='Underwater Plot')
-
-    
-    st.subheader('Historical Stats')
-    cagr=estimation.mean_historical_return(hist)
-    std=hist.pct_change().dropna().std()*(252**0.5)
-    sharpe=cagr/std
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric('CAGR',str("{:.2%}".format(cagr)))
-    col2.metric('STD',str("{:.2%}".format(std)))
-    col3.metric('Sharpe ratio',str("{:.2f}".format(sharpe)))
-    col4.metric('Max Drawdown',str("{:.2%}".format(dd.min())))
-
-    st.subheader('Worst five drawdowns')
-    st.write(dd_table(dd,hist))
+            st.subheader('Worst five drawdowns')
+            st.write(dd_table(dd,hist))
+        except:
+            st.write('You need to define the inputs')
 
 
 def get_max_drawdown_underwater(underwater):
