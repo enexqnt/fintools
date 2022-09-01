@@ -2,6 +2,3 @@ yfinance==0.1.74
 streamlit==1.11.1
 seaborn==0.11.2
 sklearn
-quandl
-cvxpy
-riskfolio-lib
