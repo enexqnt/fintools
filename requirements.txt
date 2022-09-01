@@ -4,3 +4,4 @@ sklearn
 quandl
 cvxpy
 riskfolio-lib
+yfinance
